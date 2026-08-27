@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timings IAO</title>
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============================ LOGIN ============================ -->
+<div id="loginView" class="login" hidden>
+  <div class="login-inner">
+    <span class="eyebrow">Acceso requerido</span>
+    <h1>Timings</h1>
+    <p class="lede">Entrá con la contraseña del clan. Sin ella la app no muestra timings ni historial.</p>
+
+    <div class="login-box">
+      <label for="pass">Contraseña</label>
+      <input type="password" id="pass" autocomplete="current-password" placeholder="••••••••">
+      <button class="btn-primary" id="enter">Entrar</button>
+      <p class="msg" id="loginMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ APP ============================ -->
+<div id="appView" class="wrap" hidden>
+
+  <header class="head">
+    <div>
+      <span class="eyebrow">ImperiumAO</span>
+      <h1 id="appTitle">Timings IAO</h1>
+    </div>
+    <div class="head-right">
+      <input id="nick" class="nick" maxlength="18" placeholder="Tu nick" aria-label="Tu nick">
+      <span id="status" class="status" data-state="off">Conectando</span>
+      <button id="logout" class="link-quiet">Salir</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="chip" id="sortNext" aria-pressed="true">Próximo a salir</button>
+    <button class="chip" id="sortName" aria-pressed="false">Alfabético</button>
+    <button class="chip" id="onlySoon" aria-pressed="false">Solo activos</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" hidden>No hay bosses cargados en <code>bosses.js</code>.</div>
+
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
