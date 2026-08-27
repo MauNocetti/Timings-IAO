@@ -1,0 +1,40 @@
+IMAGENES DE LOS BOSSES
+======================
+
+Poné acá los archivos con EXACTAMENTE estos nombres. El codigo los busca solo,
+no hay que tocar nada mas.
+
+Un archivo por bicho, no por entrada: los golems que salen en varios dungeons
+comparten la misma imagen.
+
+  archimago.png                  Archimago
+  djin.png                       Djin
+  golem-de-oro.png               Golem de Oro            (2 dungeons)
+  golem-de-plata.png             Golem de Plata          (2 dungeons)
+  golem-infernal.png             Golem Infernal          (3 dungeons)
+  gorgona.png                    Gorgona
+  gran-dragon-azul.png           Gran Dragon Azul
+  gran-dragon-negro.png          Gran Dragon Negro
+  gran-dragon-rojo.png           Gran Dragon Rojo
+  gran-dragon-verde.png          Gran Dragon Verde
+  gran-hechicero-garveloth.png   Gran Hechicero Garveloth
+  guarda.png                     Guarda
+  khern-ghard.png                Khern Ghard
+
+FORMATO
+  PNG con fondo transparente. Se muestran a 52x52 px, asi que con 104x104
+  alcanza y sobra. Los sprites chicos del juego sirven tal cual: el CSS usa
+  image-rendering pixelated, o sea que se agrandan sin desenfoque.
+
+SI FALTA UNA
+  No rompe nada. Esa tarjeta muestra la inicial del nombre hasta que subas
+  el archivo.
+
+SI USAS GIF ANIMADO
+  Cambiá IMG_EXT a 'gif' en config.js y nombrá todos los archivos .gif.
+  Para mezclar formatos, poné la ruta a mano en la entrada del boss:
+  { id: 'zero-archimago', name: 'Archimago', img: 'img/archimago.gif', ... }
+
+REGLA DEL NOMBRE
+  minusculas, sin acentos, espacios por guiones.
+  "Gran Dragón Verde" -> gran-dragon-verde.png

@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { BOSSES } from './bosses.js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, CLAN_EMAIL, APP_TITLE } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, CLAN_EMAIL, APP_TITLE, IMG_DIR, IMG_EXT } from './config.js';
 
 // El cliente arma las rutas (/auth/v1, /rest/v1, /realtime/v1) sobre la URL
 // base, asi que si le pasan una URL con ruta incluida se duplica y devuelve
@@ -67,6 +67,12 @@ function fmtDur(sec) {
   return p.join(' ') || '0s';
 }
 
+/** "Gran Dragón Verde" -> "gran-dragon-verde" */
+function slug(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 /** Normaliza la lista una sola vez y avisa de ids repetidos. */
 const LIST = (() => {
   const seen = new Set();
@@ -75,7 +81,14 @@ const LIST = (() => {
     seen.add(b.id);
     const min = toSeconds(b.min), max = toSeconds(b.max);
     if (max < min) console.warn(`[bosses] "${b.name}": max menor que min`);
-    return { ...b, dungeon: b.dungeon || 'Sin asignar', minSec: min, maxSec: max };
+    return {
+      ...b,
+      dungeon: b.dungeon || 'Sin asignar',
+      minSec: min,
+      maxSec: max,
+      // Misma imagen para el mismo bicho aunque aparezca en varios dungeons.
+      imgSrc: b.img || `${IMG_DIR}/${slug(b.name)}.${IMG_EXT}`
+    };
   });
 })();
 
@@ -215,13 +228,9 @@ function buildCards() {
     const el = document.createElement('article');
     el.className = 'card';
 
-    const sprite = boss.img
-      ? `<img class="sprite" src="${boss.img}" alt="" loading="lazy">`
-      : `<div class="sprite" aria-hidden="true">${boss.name.charAt(0)}</div>`;
-
     el.innerHTML = `
       <div class="card-top">
-        ${sprite}
+        <img class="sprite" alt="" loading="lazy" decoding="async">
         <div>
           <div class="card-name"></div>
           <div class="card-dungeon"></div>
@@ -271,6 +280,18 @@ function buildCards() {
     el.querySelector('.card-name').textContent = boss.name;
     el.querySelector('.card-dungeon').textContent = boss.dungeon;
     el.querySelector('.card-resp').textContent = rangeText(boss);
+
+    // Si el archivo no existe, la tarjeta cae a la inicial del nombre en vez
+    // de mostrar un icono roto.
+    const img = el.querySelector('.sprite');
+    img.onerror = () => {
+      const ph = document.createElement('div');
+      ph.className = 'sprite sprite-ph';
+      ph.setAttribute('aria-hidden', 'true');
+      ph.textContent = boss.name.charAt(0);
+      img.replaceWith(ph);
+    };
+    img.src = boss.imgSrc;
 
     const now = new Date();
     r.time.value = hhmm(now);

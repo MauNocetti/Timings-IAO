@@ -130,9 +130,13 @@ input{font:inherit;color:inherit}
 .sprite{
   width:52px;height:52px;flex:none;border-radius:8px;
   background:var(--panel-2);border:1px solid var(--line-soft);
+  object-fit:contain;
+  /* Los sprites son pixel art: sin esto se ven borrosos al escalar. */
+  image-rendering:pixelated;
+}
+.sprite-ph{
   display:flex;align-items:center;justify-content:center;
   font-weight:800;font-size:20px;color:var(--violet);
-  object-fit:contain;
 }
 .card-name{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.2}
 .card-dungeon{
