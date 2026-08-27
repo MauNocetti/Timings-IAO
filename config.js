@@ -9,7 +9,7 @@ export const SUPABASE_URL = 'https://aisnhvheqfhpzlkvzhkt.supabase.co/rest/v1/';
 // La clave "anon public". Va commiteada al repo sin problema: es publica por
 // diseño y no da acceso a nada, porque las politicas RLS exigen sesion iniciada.
 // La que NUNCA va acá es la "service_role".
-export const SUPABASE_ANON_KEY = 'TU_ANON_KEY';
+export const SUPABASE_ANON_KEY = 'sb_publishable_9c9c_RBKdfAOvDDJMXd4Wg_tg_cboQt';
 
 // Email de la cuenta unica del clan (la que creaste en Authentication -> Users).
 // Nadie lo escribe al entrar: solo se pide la contraseña.
