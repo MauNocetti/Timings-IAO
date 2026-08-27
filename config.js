@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 
 // Panel de Supabase -> Project Settings -> Data API
-export const SUPABASE_URL = 'https://aisnhvheqfhpzlkvzhkt.supabase.co/rest/v1/';
+export const SUPABASE_URL = 'https://aisnhvheqfhpzlkvzhkt.supabase.co/';
 
 // La clave "anon public". Va commiteada al repo sin problema: es publica por
 // diseño y no da acceso a nada, porque las politicas RLS exigen sesion iniciada.
