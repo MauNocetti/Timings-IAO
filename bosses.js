@@ -49,8 +49,6 @@ export const BOSSES = [
   { id: 'kalath-garveloth',      name: 'Gran Hechicero Garveloth', dungeon: 'Templo Kalath',   min: '30m',     max: '45m'     },
   { id: 'kalath-djin',           name: 'Djin',                     dungeon: 'Templo Kalath',   min: '4h',      max: '6h 30m'  },
 
-  // ----- Sin asignar -----
-  // Khern Ghard venia de la lista original y no me dijiste en que dungeon sale.
-  // Movelo al bloque que corresponda y cambiale el id.
-  { id: 'khern-ghard',           name: 'Khern Ghard',              dungeon: 'Sin asignar',     min: '5h',      max: '8h'      },
+  // ----- Cueva Pirata -----
+  { id: 'pirata-khern-ghard',    name: 'Khern Ghard',              dungeon: 'Cueva Pirata',    min: '5h',      max: '8h'      },
 ];
