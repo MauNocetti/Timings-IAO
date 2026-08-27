@@ -1,29 +1,56 @@
 // ---------------------------------------------------------------------------
-// LISTA DE BOSSES
+// LISTA DE BOSSES POR DUNGEON
 //
-// Este es el unico archivo que tenes que tocar para agregar o corregir bosses.
-// Cada boss necesita:
+// Cada entrada es un spawn independiente. Si el mismo bicho aparece en dos
+// dungeons, van dos entradas con ids distintos: son dos timers separados.
 //
-//   id     Identificador interno. Sin espacios ni acentos. NO lo cambies una vez
-//          que el boss tiene registros cargados, porque se pierde el historial.
-//   name   Como se muestra en pantalla.
-//   min    Minutos desde la muerte hasta que PUEDE aparecer.
-//   max    Minutos desde la muerte hasta que YA TENDRIA que haber aparecido.
-//          Si el respawn es exacto y no tiene ventana, poné el mismo valor que min.
-//   zone   Opcional. Zona o mapa.
-//   img    Opcional. URL del sprite. Si no hay, se muestra la inicial del nombre.
+//   id       Identificador interno, unico. Sin espacios ni acentos.
+//            NO lo cambies una vez que tenga registros: se pierde el historial.
+//   name     Como se muestra en pantalla.
+//   dungeon  Nombre del dungeon. Los filtros se arman solos a partir de esto,
+//            asi que alcanza con escribirlo igual en todas las entradas.
+//   min      Tiempo desde la muerte hasta que PUEDE aparecer.
+//   max      Tiempo desde la muerte hasta que YA TENDRIA que haber aparecido.
+//   img      Opcional. URL del sprite. Sin esto se muestra la inicial.
 //
-// Ayuda para convertir:  1 h = 60   3 h 30 m = 210   6 h = 360   9 h = 540
+// Formato de min/max: texto con horas, minutos y segundos, en cualquier
+// combinacion.  '45s'   '33m 20s'   '2h'   '6h 30m'   '12h 45m 10s'
+// Un numero suelto se interpreta como minutos: 210 es lo mismo que '3h 30m'.
+// Si el respawn es exacto, poné el mismo valor en los dos.
 // ---------------------------------------------------------------------------
 
 export const BOSSES = [
-  { id: 'garveloth',   name: 'Garveloth',   min: 30,  max: 45  },
-  { id: 'archimago',   name: 'Archimago',   min: 360, max: 540 },
-  { id: 'djin',        name: 'Djin',        min: 240, max: 390 },
-  { id: 'guarda',      name: 'Guarda',      min: 210, max: 330 },
-  { id: 'gorgona',     name: 'Gorgona',     min: 45,  max: 100 },
-  { id: 'khern-ghard', name: 'Khern Ghard', min: 300, max: 480 },
 
-  // Pegá el resto acá abajo con el mismo formato, por ejemplo:
-  // { id: 'nombre-del-boss', name: 'Nombre Del Boss', min: 120, max: 180, zone: 'Dungeon X' },
+  // ----- Dungeon Veriil -----
+  { id: 'veriil-gorgona',        name: 'Gorgona',                  dungeon: 'Dungeon Veriil',  min: '45m',     max: '1h 40m'  },
+  { id: 'veriil-dragon-verde',   name: 'Gran Dragón Verde',        dungeon: 'Dungeon Veriil',  min: '2h',      max: '5h'      },
+
+  // ----- Dungeon Farzhé -----
+  { id: 'farzhe-golem-plata',    name: 'Golem de Plata',           dungeon: 'Dungeon Farzhé',  min: '33m 20s', max: '46m 40s' },
+  { id: 'farzhe-golem-oro',      name: 'Golem de Oro',             dungeon: 'Dungeon Farzhé',  min: '36m 40s', max: '1h 1m'   },
+  { id: 'farzhe-golem-infernal', name: 'Golem Infernal',           dungeon: 'Dungeon Farzhé',  min: '41m 40s', max: '1h 10m'  },
+
+  // ----- Dungeon Zero -----
+  { id: 'zero-archimago',        name: 'Archimago',                dungeon: 'Dungeon Zero',    min: '6h',      max: '9h'      },
+  { id: 'zero-dragon-negro',     name: 'Gran Dragón Negro',        dungeon: 'Dungeon Zero',    min: '12h',     max: '20h'     },
+  { id: 'zero-dragon-azul',      name: 'Gran Dragón Azul',         dungeon: 'Dungeon Zero',    min: '8h',      max: '14h'     },
+  { id: 'zero-golem-plata',      name: 'Golem de Plata',           dungeon: 'Dungeon Zero',    min: '33m 20s', max: '46m 40s' },
+  { id: 'zero-golem-oro',        name: 'Golem de Oro',             dungeon: 'Dungeon Zero',    min: '36m 40s', max: '1h 1m'   },
+  { id: 'zero-golem-infernal',   name: 'Golem Infernal',           dungeon: 'Dungeon Zero',    min: '41m 40s', max: '1h 10m'  },
+
+  // ----- Abismo Infernal -----
+  { id: 'abismo-golem-infernal', name: 'Golem Infernal',           dungeon: 'Abismo Infernal', min: '41m 40s', max: '1h 10m'  },
+  { id: 'abismo-dragon-rojo',    name: 'Gran Dragón Rojo',         dungeon: 'Abismo Infernal', min: '10h',     max: '17h'     },
+
+  // ----- Pantano -----
+  { id: 'pantano-guarda',        name: 'Guarda',                   dungeon: 'Pantano',         min: '3h 30m',  max: '5h 30m'  },
+
+  // ----- Templo Kalath -----
+  { id: 'kalath-garveloth',      name: 'Gran Hechicero Garveloth', dungeon: 'Templo Kalath',   min: '30m',     max: '45m'     },
+  { id: 'kalath-djin',           name: 'Djin',                     dungeon: 'Templo Kalath',   min: '4h',      max: '6h 30m'  },
+
+  // ----- Sin asignar -----
+  // Khern Ghard venia de la lista original y no me dijiste en que dungeon sale.
+  // Movelo al bloque que corresponda y cambiale el id.
+  { id: 'khern-ghard',           name: 'Khern Ghard',              dungeon: 'Sin asignar',     min: '5h',      max: '8h'      },
 ];
