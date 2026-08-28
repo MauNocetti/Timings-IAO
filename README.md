@@ -18,8 +18,13 @@ nuevo. El plan gratuito alcanza de sobra.
 ### 2. Crear la tabla
 
 En el panel: **SQL Editor → New query**. Pegá todo el contenido de `schema.sql`
-y dale **Run**. Eso crea la tabla `kills`, activa las políticas de seguridad y
-habilita realtime.
+y dale **Run**. Eso crea la tabla `kills`, activa las políticas de seguridad,
+habilita realtime y bloquea las muertes duplicadas.
+
+> Si ya lo habías corrido antes: volvé a pegarlo y ejecutarlo, es idempotente.
+> Lo único que puede fallar es la restricción `kills_sin_duplicados` si en el
+> historial ya hay duplicados de antes. En ese caso el propio archivo termina
+> con la consulta para verlos y limpiarlos.
 
 ### 3. Crear la cuenta del clan
 
@@ -83,13 +88,36 @@ dato por Discord.
 
 **Aparece.** La ventana estimada, calculada sobre el último registro.
 
+**Vencida.** Cuando la ventana pasó sin que nadie cargue nada, la tarjeta dice
+"Vencida" y deja de contar. Contar hacia arriba desde el vencimiento no aporta
+nada y llena la grilla de números que nadie mira. El horario de la ventana que
+pasó queda igual en "Aparece", y abajo sigue el último registro con su hora.
+
 **Spawn perdido.** Cuando la ventana pasó y nadie lo vio. Toma el cierre de esa
 ventana como nueva referencia y recalcula desde ahí. Es una estimación, no un
-dato: sirve para que la tarjeta no quede clavada en "vencida hace 6 horas". Si
-en el clan lo usan con otra lógica, se cambia en `app.js`.
+dato: sirve para sacar la tarjeta de "Vencida" y volver a tener una ventana que
+mirar. Si en el clan lo usan con otra lógica, se cambia en `app.js`.
 
 **Deshacer último cambio.** Borra el registro más reciente de ese boss y vuelve
 al anterior. Sirve para cuando alguien carga mal.
+
+**Sin muertes duplicadas.** Si dos personas cargan la misma muerte, la segunda
+rebota con *"Esta muerte ya fue cargada"*, diciendo el horario y el nick del que
+llegó primero. Como rara vez ponen el mismo minuto, se comparan con tolerancia:
+cuenta como la misma muerte cualquier registro del mismo boss a menos de **10
+minutos**. No limita nada real — el respawn más corto de la lista es de media
+hora, así que dos muertes legítimas nunca caen tan cerca.
+
+El chequeo está en los dos lados. En la app es instantáneo, sin ir a la base. Y
+la base tiene la restricción `kills_sin_duplicados`, que es la que decide cuando
+dos cargan al mismo tiempo y el aviso de realtime todavía no llegó: ahí también
+rebota y la tarjeta se actualiza sola con el registro del otro.
+
+Los botones se bloquean mientras el registro viaja, así que apretar dos veces
+"Registrar", "Ahora", "Spawn perdido" o "Deshacer" carga una sola vez.
+
+Si cargaste un horario equivocado y querés corregirlo por pocos minutos, usá
+primero **Deshacer último cambio** y después cargá el bueno.
 
 **Orden.** Por defecto aparecen primero los que tienen ventana abierta, después
 los vencidos, después por cercanía. "Solo activos" esconde los que faltan más de

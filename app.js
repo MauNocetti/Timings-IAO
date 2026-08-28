@@ -27,7 +27,15 @@ const $ = id => document.getElementById(id);
 const HISTORY_SHOWN = 5;
 const TODOS = '__todos__';
 
+// Dos personas cargando la misma muerte rara vez ponen el mismo minuto: uno
+// escribe 21:03 y el otro 21:05. Cualquier registro del mismo boss a menos de
+// esto de distancia se considera la misma muerte y se rechaza. Va igual que la
+// restriccion kills_sin_duplicados de schema.sql: si cambia una, cambia la otra.
+const DUP_WINDOW_MS = 10 * 60 * 1000;
+
 let history = {};                 // bossId -> filas de mas nueva a mas vieja
+const busy = new Set();           // bossIds con una escritura en vuelo
+const msgTimers = new Map();      // bossId -> timeout del cartel de la tarjeta
 let nick = localStorage.getItem('iao_nick') || '';
 let sortMode = 'next';
 let onlySoon = false;
@@ -174,23 +182,92 @@ async function loadAll() {
   refresh();
 }
 
+/** Registro ya cargado que cae dentro de la ventana de tolerancia, o null. */
+function findDuplicate(bossId, whenMs) {
+  return (history[bossId] || []).find(
+    row => Math.abs(new Date(row.killed_at).getTime() - whenMs) < DUP_WINDOW_MS
+  ) || null;
+}
+
+function dupText(row) {
+  const d = new Date(row.killed_at);
+  return `Esta muerte ya fue cargada: ${hhmm(d)} del ${ddmm(d)} por ${row.by_nick}.`;
+}
+
 async function register(bossId, when, kind = 'kill') {
+  // Doble click, doble tap, o Enter repetido mientras el insert anterior sigue
+  // viajando: sin esto entran dos registros identicos.
+  if (busy.has(bossId)) return;
+
+  // Chequeo local primero: es instantaneo y evita el viaje a la base en el caso
+  // comun, que es que el duplicado ya este en pantalla.
+  const dup = findDuplicate(bossId, when);
+  if (dup) { cardMsg(bossId, dupText(dup), 'warn'); return; }
+
+  setBusy(bossId, true);
   const { error } = await sb.from('kills').insert({
     boss_id: bossId,
     killed_at: new Date(when).toISOString(),
     by_nick: nick || 'anonimo',
     kind
   });
-  if (error) { console.error(error); setStatus('No se pudo guardar', false); return; }
+  setBusy(bossId, false);
+
+  if (error) {
+    // 23P01 = exclusion_violation. Es la carrera real: alguien lo cargo entre
+    // nuestro chequeo local y el insert. La base es la que decide.
+    if (error.code === '23P01' || /kills_sin_duplicados/.test(error.message || '')) {
+      await loadAll();
+      const other = findDuplicate(bossId, when);
+      cardMsg(bossId, other ? dupText(other) : 'Esta muerte ya fue cargada.', 'warn');
+      return;
+    }
+    console.error(error);
+    setStatus('No se pudo guardar', false);
+    return;
+  }
+
+  cardMsg(bossId, kind === 'missed' ? 'Spawn perdido registrado.' : 'Registrado.', 'ok');
   await loadAll();
 }
 
 async function undoLast(bossId) {
+  if (busy.has(bossId)) return;
   const last = (history[bossId] || [])[0];
   if (!last) return;
+
+  setBusy(bossId, true);
   const { error } = await sb.from('kills').delete().eq('id', last.id);
+  setBusy(bossId, false);
+
   if (error) { console.error(error); setStatus('No se pudo deshacer', false); return; }
   await loadAll();
+}
+
+/** Bloquea los botones de una tarjeta mientras hay una escritura en vuelo. */
+function setBusy(bossId, on) {
+  if (on) busy.add(bossId); else busy.delete(bossId);
+  const r = cards.get(bossId);
+  if (!r) return;
+  // Directo ademas de por refresh(), porque refresh() saltea las tarjetas
+  // escondidas por el filtro.
+  for (const b of r.acts) b.disabled = on;
+  refresh();
+}
+
+/** Cartel corto dentro de la tarjeta. Se borra solo. */
+function cardMsg(bossId, text, tone) {
+  const r = cards.get(bossId);
+  if (!r) return;
+  r.msg.textContent = text;
+  r.msg.dataset.tone = tone;
+  r.msg.hidden = false;
+
+  clearTimeout(msgTimers.get(bossId));
+  msgTimers.set(bossId, setTimeout(() => {
+    r.msg.hidden = true;
+    r.msg.textContent = '';
+  }, tone === 'warn' ? 7000 : 2500));
 }
 
 function setStatus(text, live) {
@@ -267,6 +344,7 @@ function buildCards() {
           <button class="btn btn-ghost btn-wide" data-act="undo">Deshacer último cambio</button>
           <button class="btn btn-warn btn-wide" data-act="missed">Spawn perdido</button>
         </div>
+        <p class="card-msg" role="status" aria-live="polite" hidden></p>
         <p class="by"></p>
         <details>
           <summary>Últimos ${HISTORY_SHOWN} guardados</summary>
@@ -281,11 +359,15 @@ function buildCards() {
       window: el.querySelector('.window-val'),
       time:   el.querySelector('input[type=time]'),
       date:   el.querySelector('input[type=date]'),
+      reg:    el.querySelector('[data-act=reg]'),
+      now:    el.querySelector('[data-act=now]'),
       undo:   el.querySelector('[data-act=undo]'),
       missed: el.querySelector('[data-act=missed]'),
+      msg:    el.querySelector('.card-msg'),
       by:     el.querySelector('.by'),
       hist:   el.querySelector('.hist')
     };
+    r.acts = [r.reg, r.now, r.undo, r.missed];
 
     el.querySelector('.card-name').textContent = boss.name;
     el.querySelector('.card-dungeon').textContent = boss.dungeon;
@@ -307,13 +389,13 @@ function buildCards() {
     r.time.value = hhmm(now);
     r.date.value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-    el.querySelector('[data-act=reg]').onclick = () => {
+    r.reg.onclick = () => {
       if (!r.time.value || !r.date.value) return;
       const when = new Date(`${r.date.value}T${r.time.value}:00`);
       if (isNaN(when)) return;
       register(boss.id, when.getTime());
     };
-    el.querySelector('[data-act=now]').onclick = () => register(boss.id, Date.now());
+    r.now.onclick = () => register(boss.id, Date.now());
     r.undo.onclick = () => {
       const last = (history[boss.id] || [])[0];
       if (!last) return;
@@ -352,7 +434,13 @@ function refresh() {
 
     r.el.classList.toggle('is-window', c.status === 'window');
     r.el.classList.toggle('is-over', c.status === 'over');
-    r.count.classList.toggle('sm', c.status === 'unknown');
+    // 'over' y 'unknown' no muestran numero, asi que el cartel va en chico.
+    r.count.classList.toggle('sm', c.status === 'unknown' || c.status === 'over');
+
+    // Mientras hay una escritura en vuelo la tarjeta entera queda quieta.
+    const locked = busy.has(b.id);
+    r.reg.disabled = locked;
+    r.now.disabled = locked;
 
     if (c.status === 'unknown') {
       r.label.textContent = 'Sin datos';
@@ -365,13 +453,21 @@ function refresh() {
       return;
     }
 
-    r.undo.disabled = false;
-    r.missed.disabled = false;
+    r.undo.disabled = locked;
+    r.missed.disabled = locked;
 
-    if (c.status === 'pending')      r.label.textContent = 'Falta';
-    else if (c.status === 'window')  r.label.textContent = 'Ventana abierta · cierra en';
-    else                             r.label.textContent = 'Ventana vencida hace';
-    r.count.textContent = countdown(c.ms);
+    // Una ventana vencida no tiene cuenta regresiva que mostrar: contar hacia
+    // arriba desde el vencimiento no dice nada util y hace ruido en la grilla.
+    // El horario de la ventana que paso queda igual en "Aparece".
+    if (c.status === 'over') {
+      r.label.textContent = 'Ventana';
+      r.count.textContent = 'Vencida';
+    } else {
+      r.label.textContent = c.status === 'pending'
+        ? 'Falta'
+        : 'Ventana abierta · cierra en';
+      r.count.textContent = countdown(c.ms);
+    }
 
     const f = new Date(c.from), t = new Date(c.to);
     r.window.textContent = b.minSec === b.maxSec ? hhmm(f) : `${hhmm(f)} a ${hhmm(t)}`;
