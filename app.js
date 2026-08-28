@@ -31,8 +31,12 @@ let history = {};                 // bossId -> filas de mas nueva a mas vieja
 let nick = localStorage.getItem('iao_nick') || '';
 let sortMode = 'next';
 let onlySoon = false;
+let query = '';
 let dungeon = localStorage.getItem('iao_dungeon') || TODOS;
 const cards = new Map();
+
+/** Minusculas y sin acentos, para que "dragon" encuentre "Gran Dragón". */
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 /* =========================== duraciones =========================== */
 
@@ -87,7 +91,9 @@ const LIST = (() => {
       minSec: min,
       maxSec: max,
       // Misma imagen para el mismo bicho aunque aparezca en varios dungeons.
-      imgSrc: b.img || `${IMG_DIR}/${slug(b.name)}.${IMG_EXT}`
+      imgSrc: b.img || `${IMG_DIR}/${slug(b.name)}.${IMG_EXT}`,
+      // Se busca por nombre y por dungeon.
+      haystack: norm(`${b.name} ${b.dungeon || ''}`)
     };
   });
 })();
@@ -141,8 +147,12 @@ function ordered() {
   return rows;
 }
 
-/** Un boss se muestra si pasa el filtro de dungeon y el de "solo activos". */
+/** Un boss se muestra si pasa la busqueda, el filtro de dungeon y "solo activos". */
 function visible(b, c) {
+  if (query) {
+    // Cada palabra tiene que aparecer: "golem zero" encuentra los de ese dungeon.
+    for (const w of query.split(/\s+/)) if (!b.haystack.includes(w)) return false;
+  }
   if (dungeon !== TODOS && b.dungeon !== dungeon) return false;
   if (!onlySoon) return true;
   if (c.status === 'unknown') return false;
@@ -389,11 +399,15 @@ function refresh() {
     }
   });
 
+  $('searchCount').textContent = query ? `${shown}/${LIST.length}` : '';
+
   $('empty').hidden = shown > 0;
   if (!shown) {
-    $('empty').textContent = onlySoon
-      ? 'Ningún boss activo con este filtro.'
-      : 'No hay bosses en este dungeon.';
+    $('empty').textContent = query
+      ? `Ningún boss coincide con "${$('search').value.trim()}".`
+      : onlySoon
+        ? 'Ningún boss activo con este filtro.'
+        : 'No hay bosses en este dungeon.';
   }
 }
 
@@ -468,6 +482,41 @@ $('nick').onchange = e => {
   nick = e.target.value.trim();
   localStorage.setItem('iao_nick', nick);
 };
+
+function setQuery(text) {
+  query = norm(text.trim());
+  $('searchClear').hidden = !query;
+
+  // Buscar mirando un solo dungeon confunde: si hay texto, se busca en todos
+  // y el chip se mueve solo para que se vea.
+  if (query && dungeon !== TODOS) {
+    dungeon = TODOS;
+    localStorage.setItem('iao_dungeon', TODOS);
+    const bar = $('dungeonBar');
+    for (const c of bar.children) c.setAttribute('aria-pressed', 'false');
+    bar.firstElementChild?.setAttribute('aria-pressed', 'true');
+  }
+  refresh();
+}
+
+$('search').oninput = e => setQuery(e.target.value);
+$('search').onkeydown = e => {
+  if (e.key === 'Escape') { e.target.value = ''; setQuery(''); }
+};
+$('searchClear').onclick = () => {
+  $('search').value = '';
+  setQuery('');
+  $('search').focus();
+};
+
+// "/" enfoca el buscador, como en GitHub.
+document.addEventListener('keydown', e => {
+  if (e.key !== '/' || $('appView').hidden) return;
+  const t = e.target.tagName;
+  if (t === 'INPUT' || t === 'TEXTAREA') return;
+  e.preventDefault();
+  $('search').focus();
+});
 
 $('sortNext').onclick = () => {
   sortMode = 'next';
