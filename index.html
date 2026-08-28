@@ -40,6 +40,13 @@
     </div>
   </header>
 
+  <div class="search">
+    <input id="search" type="search" autocomplete="off" spellcheck="false"
+           placeholder="Buscar boss o dungeon…" aria-label="Buscar boss o dungeon">
+    <button id="searchClear" class="search-clear" aria-label="Limpiar búsqueda" hidden>×</button>
+    <span id="searchCount" class="search-count" aria-live="polite"></span>
+  </div>
+
   <div class="toolbar" id="dungeonBar" role="group" aria-label="Filtrar por dungeon"></div>
 
   <div class="toolbar toolbar-sub">
