@@ -138,7 +138,10 @@ function calc(boss) {
   return { status: 'over', last, base, from, to, ms: now - to };
 }
 
-const RANK = { window: 0, over: 1, pending: 2, unknown: 3 };
+// Primero lo accionable: la ventana abierta, despues lo que esta por salir.
+// El vencido ya no tiene nada que mirar, asi que cae despues de los pendientes
+// y solo queda arriba de los que nunca se registraron.
+const RANK = { window: 0, pending: 1, over: 2, unknown: 3 };
 
 function ordered() {
   const rows = LIST.map(b => ({ b, c: calc(b) }));
@@ -462,15 +465,19 @@ function refresh() {
     if (c.status === 'over') {
       r.label.textContent = 'Ventana';
       r.count.textContent = 'Vencida';
+      // La ventana que paso ya no sirve de nada: mostrarla invita a leerla como
+      // si el boss fuese a salir a esa hora. La hora real queda en el ultimo
+      // registro, abajo.
+      r.window.textContent = '—';
     } else {
       r.label.textContent = c.status === 'pending'
         ? 'Falta'
         : 'Ventana abierta · cierra en';
       r.count.textContent = countdown(c.ms);
-    }
 
-    const f = new Date(c.from), t = new Date(c.to);
-    r.window.textContent = b.minSec === b.maxSec ? hhmm(f) : `${hhmm(f)} a ${hhmm(t)}`;
+      const f = new Date(c.from), t = new Date(c.to);
+      r.window.textContent = b.minSec === b.maxSec ? hhmm(f) : `${hhmm(f)} a ${hhmm(t)}`;
+    }
 
     const d = new Date(c.base);
     const tag = c.last.kind === 'missed' ? 'spawn perdido' : 'muerto';

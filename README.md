@@ -89,9 +89,12 @@ dato por Discord.
 **Aparece.** La ventana estimada, calculada sobre el último registro.
 
 **Vencida.** Cuando la ventana pasó sin que nadie cargue nada, la tarjeta dice
-"Vencida" y deja de contar. Contar hacia arriba desde el vencimiento no aporta
-nada y llena la grilla de números que nadie mira. El horario de la ventana que
-pasó queda igual en "Aparece", y abajo sigue el último registro con su hora.
+"Vencida", deja de contar y "Aparece" se limpia. Ni el contador hacia arriba ni
+una ventana que ya pasó dicen nada útil, y encima se leen como si el boss fuese
+a salir a esa hora. El dato que queda es el último registro, abajo de todo.
+
+Los vencidos tampoco encabezan más la lista: van después de los que están por
+salir y antes de los que nunca se registraron.
 
 **Spawn perdido.** Cuando la ventana pasó y nadie lo vio. Toma el cierre de esa
 ventana como nueva referencia y recalcula desde ahí. Es una estimación, no un
@@ -119,9 +122,10 @@ Los botones se bloquean mientras el registro viaja, así que apretar dos veces
 Si cargaste un horario equivocado y querés corregirlo por pocos minutos, usá
 primero **Deshacer último cambio** y después cargá el bueno.
 
-**Orden.** Por defecto aparecen primero los que tienen ventana abierta, después
-los vencidos, después por cercanía. "Solo activos" esconde los que faltan más de
-media hora.
+**Orden.** Por defecto: primero los que tienen la ventana abierta (el que cierra
+antes arriba), después los que faltan por cercanía, después los vencidos, y al
+final los que nunca se registraron. La idea es que arriba quede lo accionable.
+"Solo activos" esconde los que faltan más de media hora.
 
 **El nick** es autodeclarado y se guarda en el navegador de cada uno. Sirve para
 saber quién cargó qué, no para autenticar a nadie.
