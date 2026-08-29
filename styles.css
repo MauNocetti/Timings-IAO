@@ -210,6 +210,66 @@ input{font:inherit;color:inherit}
 .btn:disabled{opacity:.35;cursor:not-allowed}
 .btn:disabled:hover{border-color:var(--line);background:none}
 
+/* --------------------------- ubicacion --------------------------- */
+
+.spot{
+  padding:12px;margin-bottom:16px;
+  background:var(--bg);border:1px solid var(--line-soft);border-radius:8px;
+}
+.spot-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.spot-coord{
+  padding:5px 10px;border:1px solid var(--line);border-radius:6px;
+  background:var(--panel-2);font-family:var(--m);font-size:13px;font-weight:700;
+  letter-spacing:.02em;
+}
+.spot-coord:hover{border-color:var(--violet);color:var(--violet)}
+.spot-pista{font-size:11.5px;color:var(--muted);font-style:italic}
+
+.spot-thumb{
+  display:block;width:100%;max-height:190px;object-fit:cover;
+  border:1px solid var(--line);border-radius:6px;margin-bottom:10px;
+  cursor:zoom-in;background:var(--panel-2);
+}
+.spot-thumb:hover{border-color:var(--violet)}
+.spot-empty{font-size:12px;color:var(--muted);margin-bottom:10px;font-style:italic}
+
+.spot-acts{display:flex;align-items:center;gap:8px}
+.spot-up{
+  padding:7px 12px;border:1px solid var(--line);border-radius:6px;
+  font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  cursor:pointer;
+}
+.spot-up:hover{border-color:var(--violet);color:var(--violet)}
+.spot-up.is-busy{opacity:.5;pointer-events:none}
+.spot-del{font-size:11px;color:var(--muted);text-decoration:underline}
+.spot-del:hover{color:var(--pink)}
+.spot-del:disabled{opacity:.4;cursor:not-allowed}
+.spot-by{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
+
+/* --------------------------- visor --------------------------- */
+
+.lightbox{
+  position:fixed;inset:0;z-index:50;
+  display:flex;align-items:center;justify-content:center;
+  padding:32px 20px;background:rgba(9,7,18,.92);cursor:zoom-out;
+}
+.lightbox-fig{max-width:100%;max-height:100%;display:flex;flex-direction:column;gap:12px}
+.lightbox-fig img{
+  max-width:100%;max-height:calc(100vh - 130px);
+  object-fit:contain;border-radius:8px;border:1px solid var(--line);
+  cursor:default;image-rendering:pixelated;
+}
+.lightbox-fig figcaption{
+  text-align:center;font-family:var(--m);font-size:12.5px;color:var(--muted);
+}
+.lightbox-close{
+  position:absolute;top:16px;right:20px;
+  width:38px;height:38px;border-radius:8px;
+  font-size:26px;line-height:1;color:var(--muted);
+  background:var(--panel);border:1px solid var(--line);
+}
+.lightbox-close:hover{color:var(--text);border-color:var(--muted)}
+
 .card-msg{
   margin:12px 0 0;padding:9px 11px;border-radius:8px;
   font-size:12.5px;font-weight:600;line-height:1.35;

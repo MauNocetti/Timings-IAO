@@ -18,8 +18,9 @@ nuevo. El plan gratuito alcanza de sobra.
 ### 2. Crear la tabla
 
 En el panel: **SQL Editor → New query**. Pegá todo el contenido de `schema.sql`
-y dale **Run**. Eso crea la tabla `kills`, activa las políticas de seguridad,
-habilita realtime y bloquea las muertes duplicadas.
+y dale **Run**. Eso crea las tablas `kills` y `spots`, el bucket privado
+`ubicaciones` para las capturas de los bosses ocultos, activa las políticas de
+seguridad, habilita realtime y bloquea las muertes duplicadas.
 
 > Si ya lo habías corrido antes: volvé a pegarlo y ejecutarlo. Es idempotente
 > — lo que ya existe lo saltea con un aviso y no toca ningún dato.
@@ -136,6 +137,41 @@ saber quién cargó qué, no para autenticar a nadie.
 
 ---
 
+## Bosses ocultos
+
+Ocho bosses en mapas sin acceso directo. Van todos bajo el chip **Bosses
+ocultos** y comparten respawn de 2h a 3h. Como no tienen nombre propio, llevan
+el del lugar.
+
+Sus tarjetas traen un bloque extra con la coordenada, la pista de por dónde se
+entra, y la captura del mapa:
+
+- **La coordenada** (`551 - 44 - 28`) se copia con un click, para pegarla en el
+  juego sin tipearla.
+- **Subir imagen** guarda una captura del mapa marcando dónde está. Cualquiera
+  del clan la sube y al resto le aparece sola, sin refrescar.
+- **Click en la miniatura** la abre a pantalla completa. Se cierra con Escape o
+  clickeando afuera.
+- **Reemplazar** pisa la que había; **Quitar** la borra.
+
+Una imagen por boss, hasta 6 MB, cualquier formato de imagen.
+
+Las capturas van a un bucket de Supabase Storage llamado `ubicaciones`, que
+`schema.sql` crea **privado**. Si fuera público, cualquiera con el link vería la
+ubicación de un boss oculto sin pasar por el login — justo lo contrario de lo
+que se busca. La app pide una URL firmada que dura una hora y se renueva sola,
+así que las imágenes solo se ven con sesión iniciada.
+
+Para agregar más bosses con ubicación, alcanza con ponerles `coords` en
+`bosses.js`. El bloque aparece solo:
+
+```js
+{ id: 'oculto-lo-que-sea', name: 'Boss Lo Que Sea', dungeon: 'Bosses ocultos',
+  min: '2h', max: '3h', coords: '551 - 44 - 28', pista: 'Cactus' }
+```
+
+---
+
 ## Límites que conviene saber
 
 - **Una sola contraseña para todos.** Si se filtra, la rotás en
@@ -163,3 +199,6 @@ bosses.js      La lista de bosses  ← lo que vas a editar seguido
 config.js      Credenciales de Supabase
 schema.sql     Para pegar una vez en el SQL Editor
 ```
+
+La tabla `kills` guarda los horarios y `spots` dice qué captura tiene cada boss
+oculto. Los archivos en sí viven en Storage, no en la base.

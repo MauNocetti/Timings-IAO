@@ -34,3 +34,13 @@ export const APP_TITLE = 'Timings IAO';
 
 export const IMG_DIR = 'img';
 export const IMG_EXT = 'png'; // 'gif' si usás sprites animados
+
+// ---------------------------------------------------------------------------
+// UBICACIONES
+//
+// Bucket de Supabase Storage donde van las capturas del mapa de los bosses
+// ocultos. Lo crea schema.sql. Es privado: las imagenes solo se ven con sesion
+// iniciada, igual que el resto de los datos.
+// ---------------------------------------------------------------------------
+
+export const SPOT_BUCKET = 'ubicaciones';

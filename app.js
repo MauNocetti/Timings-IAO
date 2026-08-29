@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { BOSSES } from './bosses.js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, CLAN_EMAIL, APP_TITLE, IMG_DIR, IMG_EXT } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, CLAN_EMAIL, APP_TITLE, IMG_DIR, IMG_EXT, SPOT_BUCKET } from './config.js';
 
 // El cliente arma las rutas (/auth/v1, /rest/v1, /realtime/v1) sobre la URL
 // base, asi que si le pasan una URL con ruta incluida se duplica y devuelve
@@ -33,7 +33,14 @@ const TODOS = '__todos__';
 // restriccion kills_sin_duplicados de schema.sql: si cambia una, cambia la otra.
 const DUP_WINDOW_MS = 10 * 60 * 1000;
 
+// Tope de la captura del mapa. Una foto de pantalla del juego pesa muy por
+// debajo de esto; el limite esta para que nadie suba un video por error.
+const SPOT_MAX_BYTES = 6 * 1024 * 1024;
+
 let history = {};                 // bossId -> filas de mas nueva a mas vieja
+let spots = {};                   // bossId -> fila de spots (la captura del mapa)
+const spotUrls = new Map();       // bossId -> { url firmada, updated_at }
+const spotBusy = new Set();       // bossIds con una subida en vuelo
 const busy = new Set();           // bossIds con una escritura en vuelo
 const msgTimers = new Map();      // bossId -> timeout del cartel de la tarjeta
 let nick = localStorage.getItem('iao_nick') || '';
@@ -98,10 +105,13 @@ const LIST = (() => {
       dungeon: b.dungeon || 'Sin asignar',
       minSec: min,
       maxSec: max,
+      coords: b.coords || '',
+      pista: b.pista || '',
       // Misma imagen para el mismo bicho aunque aparezca en varios dungeons.
       imgSrc: b.img || `${IMG_DIR}/${slug(b.name)}.${IMG_EXT}`,
       // Se busca por nombre y por dungeon.
-      haystack: norm(`${b.name} ${b.dungeon || ''}`)
+      // Se busca por nombre, por dungeon y por coordenada.
+      haystack: norm(`${b.name} ${b.dungeon || ''} ${b.coords || ''} ${b.pista || ''}`)
     };
   });
 })();
@@ -273,6 +283,173 @@ function cardMsg(bossId, text, tone) {
   }, tone === 'warn' ? 7000 : 2500));
 }
 
+/* =========================== ubicaciones =========================== */
+
+async function loadSpots() {
+  const { data, error } = await sb.from('spots').select('*');
+  if (error) { console.error(error); return; }
+
+  spots = {};
+  for (const row of data) spots[row.boss_id] = row;
+  refresh();
+}
+
+// La firma dura una hora; se renueva pasados 50 minutos para que a una pestaña
+// abierta toda la tarde no se le rompan las miniaturas.
+const SPOT_URL_TTL_MS = 3600 * 1000;
+const SPOT_URL_RENEW_MS = 50 * 60 * 1000;
+
+/**
+ * URL para mostrar la captura. El bucket es privado, asi que hay que pedir una
+ * firmada. Se cachea hasta que la imagen cambie o hasta que la firma envejezca.
+ */
+async function spotUrl(bossId) {
+  const row = spots[bossId];
+  if (!row) return null;
+
+  const hit = spotUrls.get(bossId);
+  if (hit && hit.updated_at === row.updated_at &&
+      Date.now() - hit.at < SPOT_URL_RENEW_MS) {
+    return hit.url;
+  }
+
+  const { data, error } = await sb.storage.from(SPOT_BUCKET)
+    .createSignedUrl(row.path, SPOT_URL_TTL_MS / 1000);
+  if (error) { console.error(error); return null; }
+
+  spotUrls.set(bossId, { url: data.signedUrl, updated_at: row.updated_at, at: Date.now() });
+  return data.signedUrl;
+}
+
+async function uploadSpot(bossId, file) {
+  if (!file || spotBusy.has(bossId)) return;
+
+  if (!file.type.startsWith('image/')) {
+    cardMsg(bossId, 'Eso no es una imagen.', 'warn');
+    return;
+  }
+  if (file.size > SPOT_MAX_BYTES) {
+    const mb = (file.size / 1048576).toFixed(1);
+    cardMsg(bossId, `La imagen pesa ${mb} MB y el maximo es 6 MB.`, 'warn');
+    return;
+  }
+
+  setSpotBusy(bossId, true);
+
+  // Una imagen por boss, siempre en la misma ruta: al reemplazarla se pisa y no
+  // quedan archivos sueltos en el bucket. La extension no hace falta porque el
+  // tipo viaja en el content-type.
+  const path = bossId;
+  const { error: upErr } = await sb.storage.from(SPOT_BUCKET)
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (upErr) {
+    setSpotBusy(bossId, false);
+    console.error(upErr);
+    cardMsg(bossId, 'No se pudo subir la imagen.', 'warn');
+    return;
+  }
+
+  const { error: dbErr } = await sb.from('spots').upsert({
+    boss_id: bossId,
+    path,
+    by_nick: nick || 'anonimo',
+    updated_at: new Date().toISOString()
+  });
+
+  setSpotBusy(bossId, false);
+
+  if (dbErr) {
+    console.error(dbErr);
+    cardMsg(bossId, 'La imagen subio pero no se pudo registrar.', 'warn');
+    return;
+  }
+
+  spotUrls.delete(bossId);
+  cardMsg(bossId, 'Ubicación actualizada.', 'ok');
+  await loadSpots();
+}
+
+async function removeSpot(bossId) {
+  const row = spots[bossId];
+  if (!row || spotBusy.has(bossId)) return;
+
+  setSpotBusy(bossId, true);
+  const { error: stErr } = await sb.storage.from(SPOT_BUCKET).remove([row.path]);
+  const { error: dbErr } = await sb.from('spots').delete().eq('boss_id', bossId);
+  setSpotBusy(bossId, false);
+
+  if (stErr || dbErr) {
+    console.error(stErr || dbErr);
+    cardMsg(bossId, 'No se pudo quitar la imagen.', 'warn');
+    return;
+  }
+
+  spotUrls.delete(bossId);
+  await loadSpots();
+}
+
+function setSpotBusy(bossId, on) {
+  if (on) spotBusy.add(bossId); else spotBusy.delete(bossId);
+  const r = cards.get(bossId);
+  if (!r || !r.spot) return;
+  r.spotUp.classList.toggle('is-busy', on);
+  r.spotUpLabel.textContent = on ? 'Subiendo…' : (spots[bossId] ? 'Reemplazar' : 'Subir imagen');
+  r.spotDel.disabled = on;
+}
+
+/**
+ * Pinta el bloque de ubicacion. refresh() corre cada segundo, asi que solo se
+ * rehace cuando la imagen cambio de verdad: si no, cada segundo se pediria una
+ * URL firmada nueva.
+ */
+function renderSpot(b, r) {
+  const row = spots[b.id] || null;
+  const key = row ? row.updated_at : '';
+
+  // Si la firma de la URL esta por vencer hay que volver a pintar aunque la
+  // imagen sea la misma, para que spotUrl() pida una nueva.
+  const hit = spotUrls.get(b.id);
+  const firmaVieja = !!row && !!hit && Date.now() - hit.at >= SPOT_URL_RENEW_MS;
+
+  if (r.spotKey === key && !firmaVieja) return;
+  r.spotKey = key;
+
+  r.spotEmpty.hidden = !!row;
+  r.spotThumb.hidden = !row;
+  r.spotDel.hidden = !row;
+  r.spotBy.textContent = row ? `Subida por ${row.by_nick}` : '';
+  if (!spotBusy.has(b.id)) {
+    r.spotUpLabel.textContent = row ? 'Reemplazar' : 'Subir imagen';
+  }
+
+  if (!row) { r.spotThumb.removeAttribute('src'); return; }
+
+  spotUrl(b.id).then(url => {
+    // Si mientras tanto la imagen volvio a cambiar, esta URL ya no sirve.
+    // Reasignar el mismo src dispara otra carga y hace parpadear la miniatura.
+    if (url && r.spotKey === key && r.spotThumb.getAttribute('src') !== url) {
+      r.spotThumb.src = url;
+    }
+  });
+}
+
+/* =========================== visor =========================== */
+
+async function openLightbox(boss) {
+  const url = await spotUrl(boss.id);
+  if (!url) return;
+  $('lightboxImg').src = url;
+  $('lightboxImg').alt = `Ubicación de ${boss.name}`;
+  $('lightboxCap').textContent = `${boss.name} · ${boss.coords}${boss.pista ? ' · ' + boss.pista : ''}`;
+  $('lightbox').hidden = false;
+}
+
+function closeLightbox() {
+  $('lightbox').hidden = true;
+  $('lightboxImg').removeAttribute('src');
+}
+
 function setStatus(text, live) {
   const el = $('status');
   el.textContent = text;
@@ -336,6 +513,23 @@ function buildCards() {
         <span class="window-val"></span>
       </div>
 
+      <div class="spot" hidden>
+        <div class="spot-head">
+          <button type="button" class="spot-coord" title="Copiar coordenadas"></button>
+          <span class="spot-pista"></span>
+        </div>
+        <img class="spot-thumb" alt="" loading="lazy" decoding="async" hidden>
+        <p class="spot-empty">Sin captura de la ubicación todavía.</p>
+        <div class="spot-acts">
+          <label class="spot-up">
+            <input type="file" accept="image/*" hidden>
+            <span class="spot-up-label">Subir imagen</span>
+          </label>
+          <button type="button" class="spot-del" hidden>Quitar</button>
+        </div>
+        <p class="spot-by"></p>
+      </div>
+
       <div class="card-foot">
         <div class="inputs">
           <input type="time" step="60" aria-label="Hora de la muerte">
@@ -368,7 +562,19 @@ function buildCards() {
       missed: el.querySelector('[data-act=missed]'),
       msg:    el.querySelector('.card-msg'),
       by:     el.querySelector('.by'),
-      hist:   el.querySelector('.hist')
+      hist:   el.querySelector('.hist'),
+
+      spot:        el.querySelector('.spot'),
+      spotCoord:   el.querySelector('.spot-coord'),
+      spotPista:   el.querySelector('.spot-pista'),
+      spotThumb:   el.querySelector('.spot-thumb'),
+      spotEmpty:   el.querySelector('.spot-empty'),
+      spotUp:      el.querySelector('.spot-up'),
+      spotUpLabel: el.querySelector('.spot-up-label'),
+      spotFile:    el.querySelector('.spot-up input[type=file]'),
+      spotDel:     el.querySelector('.spot-del'),
+      spotBy:      el.querySelector('.spot-by'),
+      spotKey:     undefined      // updated_at de lo que hay pintado ahora
     };
     r.acts = [r.reg, r.now, r.undo, r.missed];
 
@@ -383,7 +589,9 @@ function buildCards() {
       const ph = document.createElement('div');
       ph.className = 'sprite sprite-ph';
       ph.setAttribute('aria-hidden', 'true');
-      ph.textContent = boss.name.charAt(0);
+      // "Boss Jardín Maldito" -> "J". Sin esto los ocultos mostrarian todos
+      // la misma "B" y la inicial no distinguiria ninguno.
+      ph.textContent = boss.name.replace(/^Boss\s+/i, '').charAt(0);
       img.replaceWith(ph);
     };
     img.src = boss.imgSrc;
@@ -413,6 +621,36 @@ function buildCards() {
       register(boss.id, c.to, 'missed');
     };
 
+    // El bloque de ubicacion solo existe para los bosses que tienen coords.
+    if (boss.coords) {
+      r.spot.hidden = false;
+      r.spotCoord.textContent = boss.coords;
+      r.spotPista.textContent = boss.pista;
+
+      // Las coordenadas se tipean adentro del juego, asi que copiarlas de un
+      // click ahorra el ida y vuelta.
+      r.spotCoord.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(boss.coords);
+          cardMsg(boss.id, `Coordenadas copiadas: ${boss.coords}`, 'ok');
+        } catch {
+          cardMsg(boss.id, `Copiá a mano: ${boss.coords}`, 'warn');
+        }
+      };
+
+      r.spotFile.onchange = e => {
+        const file = e.target.files?.[0];
+        e.target.value = '';       // permite volver a elegir el mismo archivo
+        uploadSpot(boss.id, file);
+      };
+
+      r.spotThumb.onclick = () => openLightbox(boss);
+
+      r.spotDel.onclick = () => {
+        if (confirm(`Quitar la captura de ${boss.name}?`)) removeSpot(boss.id);
+      };
+    }
+
     grid.appendChild(el);
     cards.set(boss.id, r);
   }
@@ -434,6 +672,8 @@ function refresh() {
     r.el.style.order = i;
 
     if (!show) return;
+
+    if (b.coords) renderSpot(b, r);
 
     r.el.classList.toggle('is-window', c.status === 'window');
     r.el.classList.toggle('is-over', c.status === 'over');
@@ -564,14 +804,21 @@ async function startApp() {
 
   buildDungeonBar();
   buildCards();
-  await loadAll();
+  await Promise.all([loadAll(), loadSpots()]);
 
   sb.channel('kills-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'kills' }, loadAll)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'spots' }, loadSpots)
     .subscribe(s => setStatus(s === 'SUBSCRIBED' ? 'En vivo' : 'Reconectando', s === 'SUBSCRIBED'));
 
   setInterval(refresh, 1000);
-  setInterval(loadAll, 60000);   // red de seguridad si se cae el websocket
+  setInterval(() => { loadAll(); loadSpots(); }, 60000);  // si se cae el websocket
+
+  $('lightbox').onclick = e => { if (e.target.id !== 'lightboxImg') closeLightbox(); };
+  $('lightboxClose').onclick = closeLightbox;
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('lightbox').hidden) closeLightbox();
+  });
 }
 
 /* =========================== arranque =========================== */

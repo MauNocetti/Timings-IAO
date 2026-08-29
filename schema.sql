@@ -130,6 +130,87 @@ end $$;
 -- );
 
 -- ---------------------------------------------------------------------------
+-- Ubicaciones de los bosses ocultos
+--
+-- Una fila por boss: cual es su captura del mapa, quien la subio y cuando.
+-- El archivo en si vive en Storage; aca solo va la referencia. Tener la tabla
+-- aparte del bucket sirve para dos cosas: saber si hay imagen sin salir a
+-- pedirla, y que el cambio viaje por realtime como cualquier otro.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.spots (
+  boss_id     text        primary key,
+  path        text        not null,
+  by_nick     text        not null default 'anonimo',
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.spots enable row level security;
+
+drop policy if exists "clan ve spots"     on public.spots;
+drop policy if exists "clan sube spots"   on public.spots;
+drop policy if exists "clan cambia spots" on public.spots;
+drop policy if exists "clan borra spots"  on public.spots;
+
+create policy "clan ve spots"
+  on public.spots for select to authenticated using (true);
+
+create policy "clan sube spots"
+  on public.spots for insert to authenticated with check (true);
+
+-- Reemplazar una imagen es un update sobre la fila que ya existe.
+create policy "clan cambia spots"
+  on public.spots for update to authenticated using (true) with check (true);
+
+create policy "clan borra spots"
+  on public.spots for delete to authenticated using (true);
+
+do $$
+begin
+  if exists (select 1 from pg_publication_tables
+             where pubname = 'supabase_realtime'
+               and schemaname = 'public' and tablename = 'spots') then
+    raise notice 'spots ya estaba en supabase_realtime.';
+  else
+    alter publication supabase_realtime add table public.spots;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Bucket de las capturas
+--
+-- Privado a proposito: 'public => false'. Si fuese publico, cualquiera con el
+-- link veria la ubicacion de un boss oculto sin pasar por el login, que es
+-- justo lo contrario de lo que se busca. La app pide una URL firmada que dura
+-- una hora, y eso solo funciona con sesion iniciada.
+-- ---------------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public)
+values ('ubicaciones', 'ubicaciones', false)
+on conflict (id) do nothing;
+
+drop policy if exists "clan ve ubicaciones"     on storage.objects;
+drop policy if exists "clan sube ubicaciones"   on storage.objects;
+drop policy if exists "clan cambia ubicaciones" on storage.objects;
+drop policy if exists "clan borra ubicaciones"  on storage.objects;
+
+create policy "clan ve ubicaciones"
+  on storage.objects for select to authenticated
+  using (bucket_id = 'ubicaciones');
+
+create policy "clan sube ubicaciones"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'ubicaciones');
+
+create policy "clan cambia ubicaciones"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'ubicaciones') with check (bucket_id = 'ubicaciones');
+
+create policy "clan borra ubicaciones"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'ubicaciones');
+
+-- ---------------------------------------------------------------------------
 -- Limpieza de duplicados historicos
 --
 -- Solo hace falta si el bloque de kills_sin_duplicados de arriba tiro

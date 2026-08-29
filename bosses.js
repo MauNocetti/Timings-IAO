@@ -12,6 +12,10 @@
 //   min      Tiempo desde la muerte hasta que PUEDE aparecer.
 //   max      Tiempo desde la muerte hasta que YA TENDRIA que haber aparecido.
 //   img      Opcional. URL del sprite. Sin esto se muestra la inicial.
+//   coords   Opcional. Ubicacion en el juego, tal cual se lee: 'mapa - X - Y'.
+//            Poner esto es lo que habilita el bloque de ubicacion en la tarjeta,
+//            con el boton para subir la captura del mapa.
+//   pista    Opcional. Como se llega. Solo se muestra si hay coords.
 //
 // Formato de min/max: texto con horas, minutos y segundos, en cualquier
 // combinacion.  '45s'   '33m 20s'   '2h'   '6h 30m'   '12h 45m 10s'
@@ -51,4 +55,21 @@ export const BOSSES = [
 
   // ----- Cueva Pirata -----
   { id: 'pirata-khern-ghard',    name: 'Khern Ghard',              dungeon: 'Cueva Pirata',    min: '5h',      max: '8h'      },
+
+  // ----- Bosses ocultos -----
+  //
+  // Mapas sin acceso directo. No tienen nombre propio, asi que van con el del
+  // lugar. Todos comparten respawn de 2h a 3h.
+  //
+  // 'coords' es la ubicacion tal cual se lee en el juego y 'pista' es por donde
+  // se entra. Tener coords es lo que hace aparecer el bloque de ubicacion en la
+  // tarjeta: ahi el clan sube y mira la captura del mapa.
+  { id: 'oculto-jardin-maldito',    name: 'Boss Jardín Maldito',       dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '551 - 44 - 28', pista: 'Cactus' },
+  { id: 'oculto-lago-sombras',      name: 'Boss Lago de las Sombras',  dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '651 - 65 - 66', pista: 'Portal' },
+  { id: 'oculto-bahia-naufragio',   name: 'Boss Bahía del Naufragio',  dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '781 - 53 - 40', pista: 'Portal Daglor · Daglor arriba' },
+  { id: 'oculto-bosque-sombrio',    name: 'Boss Bosque Sombrío',       dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '813 - 71 - 64', pista: 'Daglor abajo · Hongo' },
+  { id: 'oculto-valle-cenizas',     name: 'Boss Valle de las Cenizas', dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '803 - 24 - 16', pista: 'Daglor · Roca' },
+  { id: 'oculto-tundra-escarchada', name: 'Boss Tundra Escarchada',    dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '302 - 87 - 85', pista: 'Tiama arriba' },
+  { id: 'oculto-arboleda-aullido',  name: 'Boss Arboleda de Aullido',  dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '419 - 58 - 79', pista: 'DV abajo' },
+  { id: 'oculto-minas-carmesi',     name: 'Boss Minas Carmesí',        dungeon: 'Bosses ocultos', min: '2h', max: '3h', coords: '412 - 20 - 33', pista: 'Argal · Árbol' },
 ];
