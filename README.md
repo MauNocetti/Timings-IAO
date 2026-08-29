@@ -21,10 +21,14 @@ En el panel: **SQL Editor → New query**. Pegá todo el contenido de `schema.sq
 y dale **Run**. Eso crea la tabla `kills`, activa las políticas de seguridad,
 habilita realtime y bloquea las muertes duplicadas.
 
-> Si ya lo habías corrido antes: volvé a pegarlo y ejecutarlo, es idempotente.
-> Lo único que puede fallar es la restricción `kills_sin_duplicados` si en el
-> historial ya hay duplicados de antes. En ese caso el propio archivo termina
-> con la consulta para verlos y limpiarlos.
+> Si ya lo habías corrido antes: volvé a pegarlo y ejecutarlo. Es idempotente
+> — lo que ya existe lo saltea con un aviso y no toca ningún dato.
+>
+> Lo único que puede fallar es la restricción `kills_sin_duplicados`, si en el
+> historial ya hay duplicados de antes de crearla. En ese caso el propio archivo
+> termina con la consulta para verlos y limpiarlos. **Fijate que el Run no tire
+> error rojo:** si falla ahí, las cargas duplicadas quedan sin bloquear del lado
+> del servidor.
 
 ### 3. Crear la cuenta del clan
 
