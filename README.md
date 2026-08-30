@@ -132,8 +132,14 @@ antes arriba), después los que faltan por cercanía, después los vencidos, y a
 final los que nunca se registraron. La idea es que arriba quede lo accionable.
 "Solo activos" esconde los que faltan más de media hora.
 
-**El nick** es autodeclarado y se guarda en el navegador de cada uno. Sirve para
-saber quién cargó qué, no para autenticar a nadie.
+**El nick** es obligatorio: se pide en la pantalla de entrada, junto con la
+contraseña, y sin él no se pasa. Todo lo que cargues —horarios y capturas— queda
+firmado con ese nombre. Se guarda en el navegador de cada uno, así que se pide
+una sola vez por dispositivo; después se puede cambiar desde el encabezado, pero
+no dejar en blanco. Mínimo dos letras.
+
+Sigue siendo autodeclarado: sirve para saber quién cargó qué, no para autenticar
+a nadie.
 
 ---
 
@@ -152,9 +158,12 @@ entra, y la captura del mapa:
   del clan la sube y al resto le aparece sola, sin refrescar.
 - **Click en la miniatura** la abre a pantalla completa. Se cierra con Escape o
   clickeando afuera.
-- **Reemplazar** pisa la que había; **Quitar** la borra.
+- **Reemplazar** pisa la que había.
 
-Una imagen por boss, hasta 6 MB, cualquier formato de imagen.
+Una imagen por boss, hasta 6 MB, cualquier formato de imagen. Desde la app solo
+se reemplaza, no se borra: si alguna vez hay que sacar una del todo, se hace
+desde el panel de Supabase (*Storage → ubicaciones* y la fila en *Table Editor →
+spots*).
 
 Las capturas van a un bucket de Supabase Storage llamado `ubicaciones`, que
 `schema.sql` crea **privado**. Si fuera público, cualquiera con el link vería la
@@ -177,7 +186,9 @@ Para agregar más bosses con ubicación, alcanza con ponerles `coords` en
 - **Una sola contraseña para todos.** Si se filtra, la rotás en
   *Authentication → Users → editar → cambiar password* y todos tienen que
   volver a entrar. No podés revocar a una persona sola.
-- **El nick no está verificado.** Cualquiera puede escribir el de otro.
+- **El nick no está verificado.** Es obligatorio ponerlo, pero cualquiera puede
+  escribir el de otro. Los registros viejos que dicen `anonimo` son de antes de
+  que se pidiera; quedan como están.
 - **Cualquiera con sesión puede borrar registros.** Es lo que pediste — todos
   cargan, todos corrigen. Si algún día molesta, se restringe el `delete` en las
   políticas RLS.

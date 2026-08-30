@@ -14,11 +14,18 @@
   <div class="login-inner">
     <span class="eyebrow">Acceso requerido</span>
     <h1>Timings</h1>
-    <p class="lede">Entrá con la contraseña del clan. Sin ella la app no muestra timings ni historial.</p>
+    <p class="lede" id="loginLede">Entrá con la contraseña del clan. Sin ella la app no muestra timings ni historial.</p>
 
     <div class="login-box">
-      <label for="pass">Contraseña</label>
-      <input type="password" id="pass" autocomplete="current-password" placeholder="••••••••">
+      <label for="nickIn">Tu nick</label>
+      <input type="text" id="nickIn" maxlength="18" autocomplete="nickname"
+             placeholder="Como te ven en el juego">
+
+      <div id="passRow">
+        <label for="pass">Contraseña</label>
+        <input type="password" id="pass" autocomplete="current-password" placeholder="••••••••">
+      </div>
+
       <button class="btn-primary" id="enter">Entrar</button>
       <p class="msg" id="loginMsg" role="status" aria-live="polite"></p>
     </div>

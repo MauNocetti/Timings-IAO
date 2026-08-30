@@ -241,9 +241,6 @@ input{font:inherit;color:inherit}
 }
 .spot-up:hover{border-color:var(--violet);color:var(--violet)}
 .spot-up.is-busy{opacity:.5;pointer-events:none}
-.spot-del{font-size:11px;color:var(--muted);text-decoration:underline}
-.spot-del:hover{color:var(--pink)}
-.spot-del:disabled{opacity:.4;cursor:not-allowed}
 .spot-by{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic}
 
 /* --------------------------- visor --------------------------- */

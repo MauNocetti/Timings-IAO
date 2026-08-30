@@ -37,6 +37,11 @@ const DUP_WINDOW_MS = 10 * 60 * 1000;
 // debajo de esto; el limite esta para que nadie suba un video por error.
 const SPOT_MAX_BYTES = 6 * 1024 * 1024;
 
+// El nick deja de ser opcional: todo lo que se carga queda firmado. Sin esto
+// media tabla decia 'anonimo' y no se podia preguntarle a nadie de donde salio
+// un horario raro.
+const NICK_MIN = 2;
+
 let history = {};                 // bossId -> filas de mas nueva a mas vieja
 let spots = {};                   // bossId -> fila de spots (la captura del mapa)
 const spotUrls = new Map();       // bossId -> { url firmada, updated_at }
@@ -221,7 +226,7 @@ async function register(bossId, when, kind = 'kill') {
   const { error } = await sb.from('kills').insert({
     boss_id: bossId,
     killed_at: new Date(when).toISOString(),
-    by_nick: nick || 'anonimo',
+    by_nick: nick,
     kind
   });
   setBusy(bossId, false);
@@ -353,7 +358,7 @@ async function uploadSpot(bossId, file) {
   const { error: dbErr } = await sb.from('spots').upsert({
     boss_id: bossId,
     path,
-    by_nick: nick || 'anonimo',
+    by_nick: nick,
     updated_at: new Date().toISOString()
   });
 
@@ -370,32 +375,12 @@ async function uploadSpot(bossId, file) {
   await loadSpots();
 }
 
-async function removeSpot(bossId) {
-  const row = spots[bossId];
-  if (!row || spotBusy.has(bossId)) return;
-
-  setSpotBusy(bossId, true);
-  const { error: stErr } = await sb.storage.from(SPOT_BUCKET).remove([row.path]);
-  const { error: dbErr } = await sb.from('spots').delete().eq('boss_id', bossId);
-  setSpotBusy(bossId, false);
-
-  if (stErr || dbErr) {
-    console.error(stErr || dbErr);
-    cardMsg(bossId, 'No se pudo quitar la imagen.', 'warn');
-    return;
-  }
-
-  spotUrls.delete(bossId);
-  await loadSpots();
-}
-
 function setSpotBusy(bossId, on) {
   if (on) spotBusy.add(bossId); else spotBusy.delete(bossId);
   const r = cards.get(bossId);
   if (!r || !r.spot) return;
   r.spotUp.classList.toggle('is-busy', on);
   r.spotUpLabel.textContent = on ? 'Subiendo…' : (spots[bossId] ? 'Reemplazar' : 'Subir imagen');
-  r.spotDel.disabled = on;
 }
 
 /**
@@ -417,7 +402,6 @@ function renderSpot(b, r) {
 
   r.spotEmpty.hidden = !!row;
   r.spotThumb.hidden = !row;
-  r.spotDel.hidden = !row;
   r.spotBy.textContent = row ? `Subida por ${row.by_nick}` : '';
   if (!spotBusy.has(b.id)) {
     r.spotUpLabel.textContent = row ? 'Reemplazar' : 'Subir imagen';
@@ -525,7 +509,6 @@ function buildCards() {
             <input type="file" accept="image/*" hidden>
             <span class="spot-up-label">Subir imagen</span>
           </label>
-          <button type="button" class="spot-del" hidden>Quitar</button>
         </div>
         <p class="spot-by"></p>
       </div>
@@ -572,7 +555,6 @@ function buildCards() {
       spotUp:      el.querySelector('.spot-up'),
       spotUpLabel: el.querySelector('.spot-up-label'),
       spotFile:    el.querySelector('.spot-up input[type=file]'),
-      spotDel:     el.querySelector('.spot-del'),
       spotBy:      el.querySelector('.spot-by'),
       spotKey:     undefined      // updated_at de lo que hay pintado ahora
     };
@@ -645,10 +627,6 @@ function buildCards() {
       };
 
       r.spotThumb.onclick = () => openLightbox(boss);
-
-      r.spotDel.onclick = () => {
-        if (confirm(`Quitar la captura de ${boss.name}?`)) removeSpot(boss.id);
-      };
     }
 
     grid.appendChild(el);
@@ -756,7 +734,29 @@ function refresh() {
 
 /* =========================== auth =========================== */
 
+// Hay sesion pero todavia no hay nick: se pide solo eso, sin la contraseña.
+let soloNick = false;
+
+function guardarNick(n) {
+  nick = n;
+  localStorage.setItem('iao_nick', n);
+}
+
 async function doLogin() {
+  const n = $('nickIn').value.trim();
+  if (n.length < NICK_MIN) {
+    $('loginMsg').textContent = `Poné tu nick, con ${NICK_MIN} letras o más. Es para que el clan sepa quién cargó cada horario.`;
+    $('nickIn').focus();
+    return;
+  }
+
+  // Cuando solo falta el nick no hay nada que autenticar: la sesion ya existe.
+  if (soloNick) {
+    guardarNick(n);
+    await startApp();
+    return;
+  }
+
   const pass = $('pass').value;
   if (!pass) return $('pass').focus();
 
@@ -793,7 +793,21 @@ async function doLogin() {
     return;
   }
   $('pass').value = '';
+  guardarNick(n);
   await startApp();
+}
+
+/** Muestra el login. Si ya hay sesion, pide unicamente el nick. */
+function mostrarLogin(nickPendiente) {
+  soloNick = nickPendiente;
+  $('passRow').hidden = nickPendiente;
+  $('enter').textContent = nickPendiente ? 'Continuar' : 'Entrar';
+  $('loginLede').textContent = nickPendiente
+    ? 'Ya tenés sesión. Falta tu nick: todo lo que cargues queda firmado con él.'
+    : 'Entrá con la contraseña del clan. Sin ella la app no muestra timings ni historial.';
+  $('nickIn').value = nick;
+  $('loginView').hidden = false;
+  (nickPendiente || !nick ? $('nickIn') : $('pass')).focus();
 }
 
 async function startApp() {
@@ -829,8 +843,12 @@ $('pass').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
 $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
 $('nick').onchange = e => {
-  nick = e.target.value.trim();
-  localStorage.setItem('iao_nick', nick);
+  const n = e.target.value.trim();
+  // Vaciarlo volveria a dejar registros sin firmar, asi que se repone el
+  // anterior en vez de aceptar el cambio.
+  if (n.length < NICK_MIN) { e.target.value = nick; return; }
+  guardarNick(n);
+  e.target.value = n;   // que se vea lo mismo que se guardo, ya sin espacios
 };
 
 function setQuery(text) {
@@ -886,8 +904,10 @@ $('onlySoon').onclick = () => {
   refresh();
 };
 
+$('nickIn').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+
 (async function boot() {
   const { data } = await sb.auth.getSession();
-  if (data.session) await startApp();
-  else $('loginView').hidden = false;
+  if (data.session && nick.length >= NICK_MIN) await startApp();
+  else mostrarLogin(!!data.session);
 })();
